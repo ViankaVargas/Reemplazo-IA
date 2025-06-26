@@ -1,55 +1,29 @@
-const imagenMuchachaInput = document.getElementById('imagen-muchacha-input');
-const imagenEstucheInput = document.getElementById('imagen-estuche-input');
-const cambiarDisenoBtn = document.getElementById('cambiar-diseño-btn');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const imagenMuchacha = document.getElementById('imagen-muchacha');
+// Cargar las imágenes
+const imagenMuchacha = cv.imread('imagen-muchacha');
+const imagenEstuche = cv.imread('imagen-estuche');
 
-let imagenMuchachaCargada = null;
-let imagenEstucheCargada = null;
+// Convertir las imágenes a escala de grises
+const grayMuchacha = new cv.Mat();
+cv.cvtColor(imagenMuchacha, grayMuchacha, cv.COLOR_RGBA2GRAY);
+const grayEstuche = new cv.Mat();
+cv.cvtColor(imagenEstuche, grayEstuche, cv.COLOR_RGBA2GRAY);
 
-imagenMuchachaInput.addEventListener('change', (e) => {
-    const archivo = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-        imagenMuchachaCargada = new Image();
-        imagenMuchachaCargada.onload = () => {
-            imagenMuchacha.src = reader.result;
-        };
-        imagenMuchachaCargada.src = reader.result;
-    };
-    reader.readAsDataURL(archivo);
-});
+// Detectar el estuche en la imagen de la muchacha
+const contoursMuchacha = new cv.MatVector();
+cv.findContours(grayMuchacha, contoursMuchacha, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-imagenEstucheInput.addEventListener('change', (e) => {
-    const archivo = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-        imagenEstucheCargada = new Image();
-        imagenEstucheCargada.onload = () => {
-            // No hacer nada aquí
-        };
-        imagenEstucheCargada.src = reader.result;
-    };
-    reader.readAsDataURL(archivo);
-});
+// Reemplazar el estuche con el nuevo diseño
+for (let i = 0; i < contoursMuchacha.size(); i++) {
+    const contour = contoursMuchacha.get(i);
+    const x = contour.data32S[0];
+    const y = contour.data32S[1];
+    const w = contour.data32S[2];
+    const h = contour.data32S[3];
+    cv.rectangle(imagenMuchacha, new cv.Point(x, y), new cv.Point(x + w, y + h), new cv.Scalar(0, 0, 0, 0), -1);
+    cv.resize(imagenEstuche, imagenEstuche, new cv.Size(w, h));
+    const roi = imagenMuchacha.roi(new cv.Rect(x, y, w, h));
+    imagenEstuche.copyTo(roi);
+}
 
-cambiarDisenoBtn.addEventListener('click', () => {
-    if (!imagenMuchachaCargada || !imagenEstucheCargada) {
-        alert('Por favor, carga ambas imágenes');
-        return;
-    }
-
-    canvas.width = imagenMuchachaCargada.width;
-    canvas.height = imagenMuchachaCargada.height;
-
-    ctx.drawImage(imagenMuchachaCargada, 0, 0);
-
-    // Suponiendo que el estuche está en el centro de la imagen
-    const estucheX = (canvas.width - imagenEstucheCargada.width) / 2;
-    const estucheY = (canvas.height - imagenEstucheCargada.height) / 2;
-
-    ctx.drawImage(imagenEstucheCargada, estucheX, estucheY);
-
-    imagenMuchacha.src = canvas.toDataURL();
-});
+// Mostrar la imagen resultante
+cv.imshow('canvas', imagenMuchacha);
